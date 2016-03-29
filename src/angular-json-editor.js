@@ -82,9 +82,10 @@ angular.module('angular-json-editor', []).provider('JSONEditor', function () {
                 startValPromise = $q.when(scope.startval);
             }
 
+            var restartOnReady = false
+
             // Wait for the start value and schema to resolve before building the editor.
             $q.all([schemaPromise, startValPromise]).then(function (result) {
-
                 // Support $http promise response with the 'data' property.
                 var schema = result[0].data || result[0],
                     startVal = result[1].data || result[1];
@@ -95,6 +96,10 @@ angular.module('angular-json-editor', []).provider('JSONEditor', function () {
                 function restart() {
                     var values = startVal;
                     if (scope.editor && scope.editor.destroy) {
+                        if (!scope.editor.ready) {
+                            restartOnReady = true
+                            return
+                        }
                         values = scope.editor.getValue();
                         scope.editor.destroy();
                     }
@@ -109,20 +114,28 @@ angular.module('angular-json-editor', []).provider('JSONEditor', function () {
                     element.append(buttons);
                 }
 
+                function checkValid() {
+                    scope.isValid = (scope.editor.ready && scope.editor.validate().length === 0);
+                }
+
                 function editorReady() {
-                    scope.isValid = (scope.editor.validate().length === 0);
+                    checkValid()
+                    if (restartOnReady) {
+                        restartOnReady = false
+                        restart()
+                    }
                 }
 
                 function editorChange() {
                     // Fire the onChange callback
-                    if (typeof scope.onChange === 'function') {
+                    if (scope.editor.ready && typeof scope.onChange === 'function') {
                         scope.onChange({
                             $editorValue: scope.editor.getValue()
                         });
                     }
                     // reset isValid property onChange
                     scope.$apply(function () {
-                        scope.isValid = (scope.editor.validate().length === 0);
+                        checkValid()
                     });
                 }
 
